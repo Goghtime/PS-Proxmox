@@ -3,7 +3,13 @@ param (
 )
 
 # Define the path to the env.json file
-$envPath = ".\configs\env.json"
+$envPath = ".\Configs\env.json"
+
+# Ensure the directory exists
+$envDir = Split-Path -Path $envPath -Parent
+if (-not (Test-Path -Path $envDir)) {
+    New-Item -Path $envDir -ItemType Directory -Force
+}
 
 # Function to prompt for node details
 function Prompt-NodeDetails {
@@ -13,7 +19,7 @@ function Prompt-NodeDetails {
     )
 
     $ServerName = Read-Host -Prompt "Enter ServerName for $nodeName (current: $($existingValues.ServerName))"
-    if ($ServerName -eq '') { $ServerName = $existingValues.ServerName }
+    if ($ServerName -eq '') { $ServerName = $nodeName }
 
     $FQDN = Read-Host -Prompt "Enter FQDN for $nodeName (current: $($existingValues.FQDN))"
     if ($FQDN -eq '') { $FQDN = $existingValues.FQDN }
