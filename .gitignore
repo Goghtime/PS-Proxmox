@@ -1,3 +1,9 @@
-secrets.json
-env.json
-./Configs
+
+
+
+# Ignore everything in the configs directory
+configs/*
+env/*
+
+# Do not ignore the specific file
+!configs/allowed-config.json
