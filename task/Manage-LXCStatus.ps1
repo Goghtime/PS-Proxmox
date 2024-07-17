@@ -7,7 +7,10 @@ param(
 
     [Parameter(Mandatory=$true)]
     [ValidateSet("start", "stop", "reboot", "shutdown", "stop", "suspend", "resume")]
-    [string]$action
+    [string]$action,
+
+    [Parameter(Mandatory=$true)]
+    [string]$FQDNorIP
 )
 
 # Find Root Path
@@ -29,7 +32,7 @@ $Endpoint = "nodes/$node/lxc/$vmid/status/$action"
 
 # Invoke the function with the hashtable directly
 try {
-    Invoke-ProxmoxApiPOST -Endpoint $Endpoint -Body $body -Token_Name $secrets.Token_Name -API_Token $secrets.API_Token
+    Invoke-ProxmoxApiPOST -Endpoint $Endpoint -Body $body -Token_Name $secrets.Token_Name -API_Token $secrets.API_Token -FQDNorIP $FQDNorIP
 } catch {
     Write-Error "An error occurred while creating the LXC container: $_"
 }
