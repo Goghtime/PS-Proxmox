@@ -1,0 +1,18 @@
+{
+    "node"            : "pve05",
+    "ostemplate"      : "NFS:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst",
+    "vmid"            : "601",
+    "storage"         : "NFS",
+    "sshpub"          : "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC7g4iB7LugYg3b6UoTs9E/4yKcrqfecq75/pHw/2Urc3DkCtghM7uteEYvASeR03YC+ujQBfo1cP1DmPb27ez2hXP4E7fZYMu9gTukmW05UAM6LOwM4Tv9tthT64H36q2MK9sCn0k5SLGe/KzjRX29hMRlIgOXCkFMg0SLHpoklA4XVUE8RB3PTawh2WZImou/hFhAqCVMN1cIDpgqyRgJVVtkA4utgXYB8Nyz//lvfz30ciW5h0F3XM8QFCJiXfiYuDJZOnDxQ1HpI32tOcheAJoWv44wkWGmyVcBGvn7h22DwoBHse+o1vdO5UNsatzdk8I2UjBFafZCUwBsTAcFgQP8EfFFcZeVKsf+3py+r2qERXekFlf8xnPnduuIenSibH+j7YfIVnGt3q7RocjbTUh+tTUvX+TgbDnfnuNmEfXSF4yV2hnjS/Oll5t7TjNet1gIzg2qqJV4WPAEk3SrWhh9Lto2FcMEkGV8YI/DP912oP8qq9T7Ab9jYpTP1U6IOthjjf6NSrfodwzjVn2C7wnuHTSwVOIPthch0AHQiMOTjJQupEBRWKTMreLAjTQaVQOruN6GVxnxXCZ/KpTs3JmGdSQ1ntjhtPAocKnTWTyMjuN/LWG3z51DpFdqPthUx5PkOAkP4T+qdfMVM7aAGtFyaACT8hkO316HO0EEfQ==",
+    "features"        : "nesting=1",
+    "unprivileged"    : "1",
+    "arch"            : "amd64",
+    "ostype"          : "ubuntu",
+    "cores"           : "1",
+    "memory"          : "1024",
+    "swap"            : "512",
+    "nameserver"      : "192.168.100.4",
+    "searchdomain"    : "goghlabs.com",
+    "net0"            : "name=eth0,bridge=vmbr0,firewall=1,gw=192.168.112.1,ip=192.168.112.2/24,tag=112,type=veth",
+    "rootfs"          : "NFS:10"
+}
