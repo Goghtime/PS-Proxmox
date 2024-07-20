@@ -1,6 +1,8 @@
 param(
     [Parameter(Mandatory=$true)]
-    [string]$ConfigFile
+    [string]$ConfigFile,
+
+    $FQDNorIP
 )
 
 # Find Root Path
@@ -39,7 +41,7 @@ $Endpoint = "nodes/$($BuildConfig.node)/lxc"
 
 # Invoke the function with the hashtable directly
 try {
-    Invoke-ProxmoxApiPOST -Endpoint $Endpoint -Body $body -Token_Name $secrets.Token_Name -API_Token $secrets.API_Token
+    Invoke-ProxmoxApiPOST -Endpoint $Endpoint -Body $body -Token_Name $secrets.Token_Name -API_Token $secrets.API_Token -FQDNorIP $FQDNorIP
 } catch {
     Write-Error "An error occurred while creating the LXC container: $_"
 }

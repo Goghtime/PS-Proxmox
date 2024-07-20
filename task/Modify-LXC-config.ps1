@@ -6,37 +6,32 @@ param(
     [int]$vmid,
 
     [Parameter(Mandatory=$true)]
-    [ValidateSet("start", "stop", "reboot", "shutdown", "stop", "suspend", "resume")]
-    [string]$action,
+    [string]$FQDNorIP,
 
     [Parameter(Mandatory=$true)]
-    [string]$FQDNorIP
+    [hashtable]$body
+
 )
 
 # Find Root Path
 $rootPath = Split-Path -Path $PSScriptRoot -Parent
 
 # Import Function -force is required to run multiple times in a row.
-Import-Module "$rootPath\functions\Invoke-ProxmoxApiPOST.ps1" -Force -DisableNameChecking
+Import-Module "$rootPath\functions\Invoke-ProxmoxApiPUT.ps1" -Force -DisableNameChecking
+
 
 # Load the configuration file
 $secrets = Get-Content -Path "$rootPath\env\secrets.json" | ConvertFrom-Json
 
 # Define the body parameters as a hashtable
-$body = @{
 
-}
+# Convert the body to JSON
 
-
-$Endpoint = "nodes/$node/lxc/$vmid/status/$action"
+$Endpoint = "nodes/$node/lxc/$vmid/config"
 
 # Invoke the function with the hashtable directly
 try {
-    Invoke-ProxmoxApiPOST -Endpoint $Endpoint -Body $body -Token_Name $secrets.Token_Name -API_Token $secrets.API_Token -FQDNorIP $FQDNorIP
+    Invoke-ProxmoxApiPUT -Endpoint $Endpoint -Body $body -Token_Name $secrets.Token_Name -API_Token $secrets.API_Token -FQDNorIP $FQDNorIP
 } catch {
     Write-Error "An error occurred while creating the LXC container: $_"
 }
-
-
-#.\task\Manage-LXCStatus.ps1 -node pve05 -vmid 5000 -action stop -FQDNorIP $
-

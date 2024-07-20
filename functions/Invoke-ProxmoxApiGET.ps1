@@ -6,11 +6,10 @@ function Invoke-ProxmoxApiGET {
         $Username = "root@pam",
         $Token_Name,
         $API_Token
-
     )
 
     # Define the variables
-    $apiUrl = "https://$FQDNorIP`:$port/api2/json/$Endpoint"
+    $apiUrl = "https://$FQDNorIP`:$Port/api2/json/$Endpoint"
 
     $apiToken = $Username + "!" + $Token_Name + "=" + $API_Token
 
@@ -24,10 +23,22 @@ function Invoke-ProxmoxApiGET {
 
     # Send the request using Invoke-RestMethod
     try {
-        Invoke-RestMethod -Uri $apiUrl -Headers $headers -Method Get -SkipCertificateCheck -SkipHeaderValidation
-        #$response | ConvertTo-Json -Depth 10
+        return Invoke-RestMethod -Uri $apiUrl -Headers $headers -Method Get -SkipCertificateCheck -SkipHeaderValidation
     } catch {
-        Write-Error "Failed to authenticate with API token. Error: $_"
-        Write-Output "Error Details: $($_.Exception | Format-List -Force | Out-String)"
+        $exception = $_.Exception
+        $responseContent = ""
+        if ($exception.Response -ne $null -and $exception.Response.Content -ne $null) {
+            try {
+                $responseContent = $exception.Response.Content.ReadAsStringAsync().Result
+            } catch {
+                $responseContent = "Unable to read response content"
+            }
+        }
+        return [pscustomobject]@{
+            StatusCode = $exception.Response.StatusCode
+            ReasonPhrase = $exception.Response.ReasonPhrase
+            ResponseContent = $responseContent
+            ErrorDetails = $exception | Format-List -Force | Out-String
+        }
     }
 }

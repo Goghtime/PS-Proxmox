@@ -1,6 +1,6 @@
 {
     "node"            : "pve",
-    "ostemplate"      : "NFS:vztmpl/ubuntu-24.04-standard_24.04-2_amd64.tar.zst",
+    "ostemplate"      : "NFS:vztmpl/current.tar.gz",
     "vmid"            : "1000",
     "storage"         : "NFS",
     "sshpub"          : "",
