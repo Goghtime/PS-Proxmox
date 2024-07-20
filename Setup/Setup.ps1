@@ -1,32 +1,15 @@
 Write-Host "PS-Proxmox Setup"
 
-$moduleName = 'Corsinvest.ProxmoxVE.Api'
+$rootPath = Split-Path -Path $PSScriptRoot -Parent
+$folderPath = "$rootPath/env"
 
-# Required Module to work with Proxmox API via PS
-# Project : https://github.com/Corsinvest/cv4pve-api-powershell
-
-if (-not (Get-Module -ListAvailable -Name $moduleName)) {
-    Install-Module -Name $moduleName -Verbose -Force
+if (-Not (Test-Path -Path $folderPath)) {
+    New-Item -ItemType Directory -Path $folderPath
+    Write-Host "Folder created: $folderPath"
 } else {
-    Write-Host "$moduleName is already installed"
+    Write-Host "Folder already exists: $folderPath"
 }
 
-# Env Setup
+& "$rootPath\setup\managejson-secrets.ps1"
 
-if (-not (Test-Path "./config/env.json")) {
-    # Your code here will run only if ./config/env.json does not exist
-    Write-Output "The file ./config/env.json does not exist."
-    . ./Setup/Build-env.ps1
-} else {
-    Write-Output "The file ./config/env.json already exists."
-}
-
-# Secrets Setup
-
-if (-not (Test-Path "./config/secrets.json")) {
-    # Your code here will run only if ./config/secrets.json does not exist
-    Write-Output "The file ./config/secrets.json does not exist."
-    . ./Setup/Build-secrets.ps1
-} else {
-    Write-Output "The file ./config/secrets.json already exists."
-}
+& "$rootPath\setup\managejson-nodes.ps1"
