@@ -1,9 +1,8 @@
-
-
-
 # Ignore everything in the configs directory
 configs/*
 env/*
+vars/*
+logs/*
 
 # Do not ignore the specific file
 !configs/allowed-config.json
