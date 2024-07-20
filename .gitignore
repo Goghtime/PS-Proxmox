@@ -5,4 +5,4 @@ vars/*
 logs/*
 
 # Do not ignore the specific file
-!configs/allowed-config.json
+!configs/Template.json
