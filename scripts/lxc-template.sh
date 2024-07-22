@@ -5,7 +5,7 @@ echo "Starting package update and upgrade..."
 apt update -y && apt upgrade -y
 
 echo "Installing required packages..."
-apt install git ansible python3-pip nfs-common curl -y
+apt install git ansible python3-pip curl -y
 
 echo "Creating user 'gla'..."
 useradd -m -s /bin/bash gla
