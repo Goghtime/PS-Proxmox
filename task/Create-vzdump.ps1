@@ -12,8 +12,9 @@ $rootPath = Split-Path -Path $PSScriptRoot -Parent
 
 # Import Function -force is required to run multiple times in a row.
 Import-Module "$rootPath\functions\Invoke-ProxmoxApiPOST.ps1" -Force -DisableNameChecking
-$secrets = Get-Content -Path "$rootPath\PS-Proxmox\env\secrets.json" | ConvertFrom-Json
-$ConfigPath = Get-Content -Path "$rootPath\PS-Proxmox\configs\$ConfigFile.json" | ConvertFrom-Json
+Import-Module "$rootPath\functions\Wait-ForTaskCompletion.ps1" -Force -DisableNameChecking
+$secrets = Get-Content -Path "$rootPath\env\secrets.json" | ConvertFrom-Json
+$ConfigPath = Get-Content -Path "$rootPath\configs\$ConfigFile.json" | ConvertFrom-Json
 
 # Define the body for the vzdump command
 $body = @{

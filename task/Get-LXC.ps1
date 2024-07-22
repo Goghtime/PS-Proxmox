@@ -10,7 +10,7 @@ Import-Module "$rootPath\functions\Invoke-ProxmoxApiGET.ps1" -Force -DisableName
 
 
 # Load required env configs
-$env = Get-Content -Path "$rootPath\env\env.json" | ConvertFrom-Json
+$env = Get-Content -Path "$rootPath\env\nodes.json" | ConvertFrom-Json
 $secrets = Get-Content -Path "$rootPath\env\secrets.json" | ConvertFrom-Json
 
 # Initialize an array to store the aggregated data

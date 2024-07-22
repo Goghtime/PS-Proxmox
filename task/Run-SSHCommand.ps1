@@ -1,26 +1,33 @@
-param(
-    $remoteHost = "root@192.168.112.2",
-    $scriptFile = "lxc-template-setup.sh"
-)
 
+ param(
+    $remoteHost,
+    $scriptFile
+)  
+
+# Extract the portion of the string between the last backslash and .sh
+$fileName = [System.IO.Path]::GetFileNameWithoutExtension($scriptFile)
+$parsedValue = $fileName -replace '^.*\\'
+$parsedValue
 
 $rootPath = Split-Path -Path $PSScriptRoot -Parent
-$scriptFilePath = "$rootPath\configs\$scriptFile"
+# Define the script file path
+$scriptFilePath = "$rootPath\$scriptFile"
 
-# Replace Windows-style line endings with Unix-style line endings
-$scriptContent = $scriptContent -replace "`r`n", "`n"
+# Read the content of the script file
+$scriptContent = Get-Content -Path $scriptFilePath -Raw
 
-# Write the updated content back to the script file
-Set-Content -Path $scriptFilePath -Value $scriptContent
+# Escape the script content to be safely included in a single SSH command
+$escapedScriptContent = $scriptContent -replace "`r`n", "`n"
 
+# Prepare the SSH command
 $sshCommand = @"
-$scriptContent
+$escapedScriptContent
 "@
 
 # Define the path to the log files
-$logFileStdOut = "$rootPath\logs\remote_setup_stdout.log"
-$logFileStdErr = "$rootPath\logs\remote_setup_stderr.log"
-$combinedLogFile = "$rootPath\logs\remote_setup.log"
+$logFileStdOut = "$rootPath\logs\$parsedValue`_stdout.log"
+$logFileStdErr = "$rootPath\logs\$parsedValue`_stderr.log"
+$combinedLogFile = "$rootPath\logs\$parsedValue.log"
 
 # Execute the script via SSH and capture the output
 $process = Start-Process ssh -ArgumentList "$remoteHost $sshCommand" -NoNewWindow -PassThru -RedirectStandardOutput $logFileStdOut -RedirectStandardError $logFileStdErr -Wait

@@ -1,146 +1,224 @@
 param(
     [string]$ConfigFile = "lxc-template",
-
     [Parameter(Mandatory=$true)]
     [string]$FQDNorIP
 )
 
 # Find Root Path
 $rootPath = Split-Path -Path $PSScriptRoot -Parent
+Import-Module "$rootPath\functions\Wait-ForTaskCompletion.ps1" -Force -DisableNameChecking
+Import-Module "$rootPath\functions\Extract-IP.ps1" -Force -DisableNameChecking
+Import-Module "$rootPath\functions\Test-Ping.ps1" -Force -DisableNameChecking
 
 # Load the environment configuration
-$ConfigPath = Get-Content -Path "D:\Projects\PS-Proxmox\configs\$ConfigFile.json" | ConvertFrom-Json
+$NodePath = Get-Content -Path "$rootPath\env\nodes.json" | ConvertFrom-Json
 $ConfigPath = Get-Content -Path "$rootPath\configs\$ConfigFile.json" | ConvertFrom-Json
 
+# Create a log file with a timestamp
+$logFilePath = "$rootPath\logs\$ConfigFile_$(Get-Date -Format 'yyyyMMdd_HHmmss')_setup.log"
+
+# Function to write log entries
+function Write-Log {
+    param (
+        [string]$message,
+        [switch]$isError
+    )
+    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    $entryType = if ($isError) { "ERROR" } else { "INFO" }
+    $logEntry = "$timestamp [$entryType] $message"
+    Write-Output $logEntry | Tee-Object -FilePath $logFilePath -Append
+}
+
+#######################################################
+
+Write-Log "Building LXC Container"
+
 # Create a new LXC container and capture the UPID
-Write-host "Building LXC Container"
 $upidResponse = & "$rootPath\build\New-lxc.ps1" -ConfigFile $ConfigFile -FQDNorIP $FQDNorIP
 $upid = $upidResponse.data
 
-# Initialize the timeout and stopwatch
-$timeoutMinutes = 10
-$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+if (-not $upid) {
+    Write-Log "Failed to retrieve UPID. Exiting." -isError
+    exit 1
+}
 
-$status = $null
-do {
-    Start-Sleep -Seconds 5
-
-    # Get the task details
-    $taskData = & "$rootPath\task\get-tasks.ps1" -FQDNorIP $FQDNorIP
-
-    # Filter the task data to find the task with the specified UPID
-    $filteredData = $taskData.data | Where-Object { $_.upid -eq $upid }
-
-    # Check if the status exists
-    if ($filteredData -and $filteredData.status) {
-        $status = $filteredData.status
-    }
-
-    # Check if the timeout has been reached
-    if ($stopwatch.Elapsed.TotalMinutes -ge $timeoutMinutes) {
-        Write-Error "Timeout reached while waiting for task completion."
-        break
-    }
-
-    if ($status -and $status -ne "OK") {
-        Write-Error "Task failed with status: $status"
-        break
-    }
-} while (-not $status -or $status -ne "OK")
-
-# Stop the stopwatch
-$stopwatch.Stop()
+$BuildStatus = Wait-ForTaskCompletion -FQDNorIP $FQDNorIP -upid $upid
 
 # Output the final task data
-if ($filteredData.status -eq "ok") {
-    & "$rootPath\task\Manage-LXCStatus.ps1" -node $ConfigPath.node -vmid $ConfigPath.vmid -action start -FQDNorIP $FQDNorIP
-    write-host "VM has been started"
-} else {
-    Write-host "unable to start"
-    Exit
-}
-
-
-# Extract the IP address 
-$components = ($ConfigPath.net0).Split(",")
-$ipComponent = $components | Where-Object { $_ -like "ip=*" }
-
-if ($ipComponent) {
-    $ip = (($ipComponent -split "=")[1] -split "/")[0]
-} else {
-    Write-Error "IP component not found in the input string."
-}
-
-$maxAttempts = 10
-$attempts = 0
-$pingSuccess = $false
-
-do {
-    $pingResult = Test-Connection -Ping $ip -Count 1 -ErrorAction SilentlyContinue
-    $attempts++
-    
-    if ($pingResult.Status -eq "Success") {
-        $pingSuccess = $true
-        Write-Host "Ping to $ConfigFile successful."
-    } else {
-        Write-Host "Ping attempt $attempts to $ConfigFile failed. Retrying..."
-        Start-Sleep -Seconds 1
+if ($BuildStatus -eq $true) {
+    try {
+        $startlxc = & "$rootPath\task\Manage-LXCStatus.ps1" -node $ConfigPath.node -vmid $ConfigPath.vmid -action start -FQDNorIP $FQDNorIP
+        Write-Log "VM has been started"
+    } catch {
+        Write-Log "Failed to start the VM: $_" -isError
+        exit 1
     }
-
-} while (-not $pingSuccess -and $attempts -lt $maxAttempts)
-
-if (-not $pingSuccess) {
-    Write-Host "Ping to $ConfigFile failed after $maxAttempts attempts."
-    Exit
-}
-
-write-host "configure container"
-$container_config = & "$rootPath\task\Run-SSHCommand.ps1" -remoteHost "root@$ip" -scriptFile $ConfigFile
-
-# Check if the script completed successfully
-$logContent = Get-Content -Path "$rootPath\logs\remote_setup.log"
-if ($logContent -contains "All tasks completed.") {
-    Write-Output "Remote setup completed successfully." | Tee-Object -FilePath "$rootPath\logs\remote_setup.log" -Append
-    
 } else {
-    Write-Output "Remote setup failed." | Tee-Object -FilePath "$rootPath\logs\remote_setup.log" -Append
-    EXIT
+    Write-Log "Unable to start the VM" -isError
+    exit 1
 }
+
+#######################################################
+
+# Extract the IP address
+try {
+    $ip = Extract-IP -netConfig $ConfigPath.net0
+    Write-Log "Extracted IP address: $ip"
+} catch {
+    Write-Log "Failed to extract IP address: $_" -isError
+    exit 1
+}
+
+# Test IP reachability
+if (-not (Test-Ping -ip $ip)) {
+    Write-Log "Ping to $ip failed after multiple attempts." -isError
+    exit 1
+}
+
+#######################################################
+
+Write-Log "Configuring container"
+
+try {
+    # Run the SSH command to configure the container
+    $containerConfig = & "$rootPath\task\Run-SSHCommand.ps1" -remoteHost "root@$ip" -scriptFile "scripts/$ConfigFile.sh"
+
+    # Check if the script completed successfully
+    $logFilePathConfig = "$rootPath\logs\$ConfigFile.log"
+    if (Test-Path -Path $logFilePathConfig) {
+        $logContent = Get-Content -Path $logFilePathConfig
+
+        if ($logContent -contains "All tasks completed.") {
+            Write-Log "Remote setup completed successfully."
+        } else {
+            Write-Log "Remote setup failed." -isError
+            exit 1
+        }
+    } else {
+        Write-Log "Log file not found: $logFilePathConfig" -isError
+        exit 1
+    }
+} catch {
+    Write-Log "An error occurred while configuring the container: $_" -isError
+    exit 1
+}
+
+#######################################################
 
 # Initial check
-$data = & "$rootPath\task\get-LXC-config.ps1" -node $node -vmid $vmid -FQDNorIP $FQDNorIP
-Write-Output "Initial LXC config:"
-$data.data
+$data = & "$rootPath\task\get-LXC-config.ps1" -node $ConfigPath.node -vmid $ConfigPath.vmid -FQDNorIP $FQDNorIP
+Write-Log "Initial LXC config: $($data.data | Out-String)"
 
-Write-host "Removing net0 and hostname"
+# LXC Edit
+Write-Log "Removing net0 and hostname"
 $body = @{
-    delete = "net0"
-    delete = "hostname"
+    delete = "net0,hostname"
 }
 
 & "$rootPath\task\Modify-LXC-config.ps1" -node $ConfigPath.node -vmid $ConfigPath.vmid -FQDNorIP $FQDNorIP -body $body
 
-
 # Final check
-$data = & "$rootPath\task\get-LXC-config.ps1" -node $node -vmid $vmid -FQDNorIP $FQDNorIP
-Write-Output "Final LXC config:"
-$data.data
+$data = & "$rootPath\task\get-LXC-config.ps1" -node $ConfigPath.node -vmid $ConfigPath.vmid -FQDNorIP $FQDNorIP
+Write-Log "Final LXC config: $($data.data | Out-String)"
 
 # Check for presence of hostname and net0
 if ($data.data.hostname -or $data.data.net0) {
-    Write-Error "Failed to remove hostname and/or net0 from the LXC config."
+    Write-Log "Failed to remove hostname and/or net0 from the LXC config." -isError
+    exit 1
 } else {
-    Write-Output "Hostname and net0 have been successfully removed."
-    $status = & "$rootPath\task\Get-LXC.ps1" -FQDNorIP $FQDNorIP | Where-Object { $_.vmid -eq 5000 } | select status
-    if($status.status -eq "stopped"){
-        write-host "$ConfigFile has been powered down"
-    } else {
-         write-host "unable to power down $ConfigFile"
-         EXIT
+    Write-Log "Hostname and net0 have been successfully removed."
+    $upidResponse = & "$rootPath\task\Manage-LXCStatus.ps1" -node $ConfigPath.node -vmid $ConfigPath.vmid -action stop -FQDNorIP $FQDNorIP
+    $stopupid = $upidResponse.data
+
+    if (-not $stopupid) {
+        Write-Log "Failed to retrieve UPID for stopping. Exiting." -isError
+        exit 1
     }
-    
+
+    $ShutdownStatus = Wait-ForTaskCompletion -FQDNorIP $FQDNorIP -upid $stopupid
+
+    if ($ShutdownStatus -ne $true) {
+        Write-Log "Unable to shutdown." -isError
+        exit 1
+    }
 }
 
+#######################################################
+
+if ($ShutdownStatus -eq $true) {
+    $Backup_status = & "$rootPath\task\Create-vzdump.ps1" -FQDNorIP $FQDNorIP -node $ConfigPath.node -vmid $ConfigPath.vmid
+
+    $BackupTask = Wait-ForTaskCompletion -FQDNorIP $FQDNorIP -upid $Backup_status.data
+    if ($BackupTask -eq $true) {
+        $archivePathfetch = & "$rootPath\task\Get-TaskLog.ps1" -FQDNorIP $FQDNorIP -upid $Backup_status.data -node $ConfigPath.node
+        $archivePathLine = $archivePathfetch.data | Select-String -Pattern "creating vzdump archive"
+
+        if ($archivePathLine -match "'([^']+)'") {
+            $archivePath = $matches[1]
+            Write-Log "The archive path is: $archivePath"
+        } else {
+            Write-Log "Archive path not found" -isError
+            exit 1
+        }
+    } else {
+        Write-Log "Backup task failed" -isError
+        exit 1
+    }
+} else {
+    Write-Log "Unable to shutdown." -isError
+    exit 1
+}
+
+#######################################################
+
+Write-Log "Add $archivePath to tmp Backup_Script"
+
+# Read the content of the original shell script
+$scriptContent = Get-Content -Path "$rootPath\$($ConfigPath.Backup_Script)"
+
+# Replace the BACKUP_PATH line with the new archive path
+$modifiedContent = $scriptContent -replace 'BACKUP_PATH=".*"', "BACKUP_PATH=""$archivePath"""
+
+$temppath = $ConfigPath.Backup_Script -replace "scripts", "temp"
+
+$logfile = [System.IO.Path]::GetFileNameWithoutExtension($temppath)
+# Create a new temporary file to hold the modified content
+$tempFilePath = "$rootPath\$temppath"
+
+# Set the content of the new temporary file
+Set-Content -Path $tempFilePath -Value $modifiedContent
+Write-Log "Created a new temporary file with the modified content: $tempFilePath"
 
 
+try {
+    # Run the SSH command to configure the container
+    Write-Log "Moving Backup"
+    $containerConfig = & "$rootPath\task\Run-SSHCommand.ps1" -remoteHost "$($ConfigPath.Proxmox_SSH_User)@$FQDNorIP" -scriptFile $temppath
 
+    # Check if the script completed successfully
+    $logFilePathMove = "$rootPath\logs\$logfile.log"
+    if (Test-Path -Path $logFilePathMove) {
+        $logContent = Get-Content -Path $logFilePathMove
+
+        if ($logContent -contains "File moved successfully to /mnt/pve/NFS/template/cache/$ConfigFile-current-lxc.tar.gz") {
+            Write-Log "File moved successfully" | Tee-Object -FilePath $logFilePathMove -Append
+            $deleteupid = & "$rootPath\task\Delete-LXC.ps1" -node $ConfigPath.node -vmid $ConfigPath.vmid -FQDNorIP $FQDNorIP -purge -destroyUnreferencedDisks
+            $DeleteStatus = Wait-ForTaskCompletion -FQDNorIP $FQDNorIP -upid $deleteupid.data
+
+            if ($DeleteStatus -eq $true) {
+                Write-Log "Cleanup"
+                Remove-Item $tempFilePath, $logFilePathMove
+                Write-Log "Complete"
+            }
+        } else {
+            Write-Log "File move failed." | Tee-Object -FilePath $logFilePathMove -Append
+            exit 1
+        }
+    } else {
+        Write-Log "Log file not found: $logFilePathMove" -isError
+        exit 1
+    }
+} catch {
+    Write-Log "An error occurred: $_" -isError
+    exit 1
+}

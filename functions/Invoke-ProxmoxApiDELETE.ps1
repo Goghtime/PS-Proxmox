@@ -23,7 +23,7 @@ function Invoke-ProxmoxApiDELETE {
 
     # Send the POST request using Invoke-RestMethod
     try {
-        Invoke-RestMethod -Uri $apiUrl -Headers $headers -Method Delete -ContentType "application/json" -SkipCertificateCheck -SkipHeaderValidation -Verbose
+        Invoke-RestMethod -Uri $apiUrl -Headers $headers -Method Delete -ContentType "application/json" -SkipCertificateCheck -SkipHeaderValidation
     } catch {
         Write-Error "Failed to authenticate with API token. StatusCode: $($_.Exception.Response.StatusCode), ReasonPhrase: $($_.Exception.Response.ReasonPhrase). Error: $($_.Exception)"
         Write-Output "Error Details: $($_.Exception | Format-List -Force | Out-String)"

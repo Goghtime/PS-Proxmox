@@ -15,6 +15,6 @@ Import-Module "$rootPath\functions\Invoke-ProxmoxApiGET.ps1" -Force -DisableName
 
 $secrets = Get-Content -Path "$rootPath\env\secrets.json" | ConvertFrom-Json
 
-$Endpoint = "nodes/$node/tasks/{upid}/log"
+$Endpoint = "nodes/$node/tasks/$upid/log"
 
 Invoke-ProxmoxApiGET -Endpoint $Endpoint -Token_Name $secrets.Token_Name -API_Token $secrets.API_Token -FQDNorIP $FQDNorIP
