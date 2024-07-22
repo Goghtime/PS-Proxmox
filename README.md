@@ -15,3 +15,8 @@ Before using project run:
 ```
 
 This will allow you to setup .\env\nodes.json and .\env\secrets.json, along with creating requires folder structure.
+
+
+```powershell
+.\build\Create-LXC-template.ps1 -FQDNorIP $FQDNorIP -ConfigFile ansible-lxc-template
+```

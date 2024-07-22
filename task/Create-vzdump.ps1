@@ -4,7 +4,9 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$node,
     [Parameter(Mandatory=$true)]
-    [string]$vmid
+    [string]$vmid,
+    [Parameter(Mandatory=$true)]
+    [string]$ConfigFile
 
 )
 
@@ -19,14 +21,13 @@ $ConfigPath = Get-Content -Path "$rootPath\configs\$ConfigFile.json" | ConvertFr
 # Define the body for the vzdump command
 $body = @{
     vmid = $vmid
-    mode = $configpath.BackupMode  
-    storage = $configpath.storage 
-    compress = $configpath.compress
+    mode = $ConfigPath.BackupMode  
+    storage = $ConfigPath.storage 
+    compress = $ConfigPath.compress
     remove = 0         # Don't remove the backup after completion
 }
-
 # Endpoint for vzdump
-$Endpoint = "nodes/$($configpath.node)/vzdump"
+$Endpoint = "nodes/$($ConfigPath.node)/vzdump"
 
 # Invoke the function to take the backup
 Invoke-ProxmoxApiPOST -Endpoint $Endpoint -Body $body -Token_Name $secrets.Token_Name -API_Token $secrets.API_Token -FQDNorIP $FQDNorIP

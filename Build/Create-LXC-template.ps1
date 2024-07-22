@@ -76,7 +76,7 @@ if (-not (Test-Ping -ip $ip)) {
 }
 
 #######################################################
-<#
+
 Write-Log "Configuring container"
 
 try {
@@ -104,7 +104,7 @@ try {
     Write-Log "An error occurred while configuring the container: $_" -isError
     exit 1
 }
-#>
+
 #######################################################
 
 # Initial check
@@ -148,8 +148,7 @@ if ($data.data.hostname -or $data.data.net0) {
 #######################################################
 
 if ($ShutdownStatus -eq $true) {
-    $Backup_status = & "$rootPath\task\Create-vzdump.ps1" -FQDNorIP $FQDNorIP -node $ConfigPath.node -vmid $ConfigPath.vmid
-
+    $Backup_status = & "$rootPath\task\Create-vzdump.ps1" -FQDNorIP $FQDNorIP -node $ConfigPath.node -vmid $ConfigPath.vmid -ConfigFile $ConfigFile
     $BackupTask = Wait-ForTaskCompletion -FQDNorIP $FQDNorIP -upid $Backup_status.data
     if ($BackupTask -eq $true) {
         $archivePathfetch = & "$rootPath\task\Get-TaskLog.ps1" -FQDNorIP $FQDNorIP -upid $Backup_status.data -node $ConfigPath.node
@@ -179,7 +178,7 @@ Write-Log "Add $archivePath to tmp Backup_Script"
 $scriptContent = Get-Content -Path "$rootPath\$($ConfigPath.Backup_Script)"
 
 # Replace the BACKUP_PATH line with the new archive path
-$modifiedContent = $scriptContent -replace 'BACKUP_PATH=".*"', "BACKUP_PATH=""$archivePath""" -replace 'DESTINATION_PATH="/mnt/pve/NFS/template/cache/[^"]*"', "DESTINATION_PATH='/mnt/pve/NFS/template/cache/$ConfigFile-current.tar.gz'"
+$modifiedContent = $scriptContent -replace 'BACKUP_PATH=".*"', "BACKUP_PATH=""$archivePath""" -replace 'DESTINATION_PATH="/mnt/pve/NFS/template/cache/[^"]*"', "DESTINATION_PATH='/mnt/pve/NFS/template/cache/$ConfigFile-current.tar.zst'"
 $temppath = $ConfigPath.Backup_Script -replace "scripts", "temp"
 
 $logfile = [System.IO.Path]::GetFileNameWithoutExtension($temppath)
@@ -202,7 +201,7 @@ try {
     if (Test-Path -Path $logFilePathMove) {
         $logContent = Get-Content -Path $logFilePathMove
 
-        if ($logContent -contains "File moved successfully to /mnt/pve/NFS/template/cache/$ConfigFile-current.tar.gz") {
+        if ($logContent -contains "File moved successfully to /mnt/pve/NFS/template/cache/$ConfigFile-current.tar.zst") {
             Write-Log "File moved successfully" | Tee-Object -FilePath $logFilePathMove -Append
             $deleteupid = & "$rootPath\task\Delete-LXC.ps1" -node $ConfigPath.node -vmid $ConfigPath.vmid -FQDNorIP $FQDNorIP -purge -destroyUnreferencedDisks
             $DeleteStatus = Wait-ForTaskCompletion -FQDNorIP $FQDNorIP -upid $deleteupid.data
