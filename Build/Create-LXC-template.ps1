@@ -15,7 +15,7 @@ $NodePath = Get-Content -Path "$rootPath\env\nodes.json" | ConvertFrom-Json
 $ConfigPath = Get-Content -Path "$rootPath\configs\$ConfigFile.json" | ConvertFrom-Json
 
 # Create a log file with a timestamp
-$logFilePath = "$rootPath\logs\$ConfigFile_$(Get-Date -Format 'yyyyMMdd_HHmmss')_setup.log"
+$logFilePath = "$rootPath\logs\$ConfigFile`_$(Get-Date -Format 'yyyyMMdd_HHmmss')_setup.log"
 
 # Function to write log entries
 function Write-Log {
@@ -76,15 +76,17 @@ if (-not (Test-Ping -ip $ip)) {
 }
 
 #######################################################
-
+<#
 Write-Log "Configuring container"
 
 try {
     # Run the SSH command to configure the container
-    $containerConfig = & "$rootPath\task\Run-SSHCommand.ps1" -remoteHost "root@$ip" -scriptFile "scripts/$ConfigFile.sh"
+    $containerConfig = & "$rootPath\task\Run-SSHCommand.ps1" -remoteHost "root@$ip" -scriptFile "scripts/$($ConfigPath.ScriptFile)"
 
     # Check if the script completed successfully
-    $logFilePathConfig = "$rootPath\logs\$ConfigFile.log"
+    $logfile = $($ConfigPath.ScriptFile).TrimEnd('.sh')
+    
+    $logFilePathConfig = "$rootPath\logs\$logfile.log"
     if (Test-Path -Path $logFilePathConfig) {
         $logContent = Get-Content -Path $logFilePathConfig
 
@@ -102,7 +104,7 @@ try {
     Write-Log "An error occurred while configuring the container: $_" -isError
     exit 1
 }
-
+#>
 #######################################################
 
 # Initial check
@@ -177,8 +179,7 @@ Write-Log "Add $archivePath to tmp Backup_Script"
 $scriptContent = Get-Content -Path "$rootPath\$($ConfigPath.Backup_Script)"
 
 # Replace the BACKUP_PATH line with the new archive path
-$modifiedContent = $scriptContent -replace 'BACKUP_PATH=".*"', "BACKUP_PATH=""$archivePath"""
-
+$modifiedContent = $scriptContent -replace 'BACKUP_PATH=".*"', "BACKUP_PATH=""$archivePath""" -replace 'DESTINATION_PATH="/mnt/pve/NFS/template/cache/[^"]*"', "DESTINATION_PATH='/mnt/pve/NFS/template/cache/$ConfigFile-current.tar.gz'"
 $temppath = $ConfigPath.Backup_Script -replace "scripts", "temp"
 
 $logfile = [System.IO.Path]::GetFileNameWithoutExtension($temppath)
@@ -193,6 +194,7 @@ Write-Log "Created a new temporary file with the modified content: $tempFilePath
 try {
     # Run the SSH command to configure the container
     Write-Log "Moving Backup"
+    $temppath
     $containerConfig = & "$rootPath\task\Run-SSHCommand.ps1" -remoteHost "$($ConfigPath.Proxmox_SSH_User)@$FQDNorIP" -scriptFile $temppath
 
     # Check if the script completed successfully
@@ -200,7 +202,7 @@ try {
     if (Test-Path -Path $logFilePathMove) {
         $logContent = Get-Content -Path $logFilePathMove
 
-        if ($logContent -contains "File moved successfully to /mnt/pve/NFS/template/cache/$ConfigFile-current-lxc.tar.gz") {
+        if ($logContent -contains "File moved successfully to /mnt/pve/NFS/template/cache/$ConfigFile-current.tar.gz") {
             Write-Log "File moved successfully" | Tee-Object -FilePath $logFilePathMove -Append
             $deleteupid = & "$rootPath\task\Delete-LXC.ps1" -node $ConfigPath.node -vmid $ConfigPath.vmid -FQDNorIP $FQDNorIP -purge -destroyUnreferencedDisks
             $DeleteStatus = Wait-ForTaskCompletion -FQDNorIP $FQDNorIP -upid $deleteupid.data
