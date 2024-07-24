@@ -20,3 +20,5 @@ This will allow you to setup .\env\nodes.json and .\env\secrets.json, along with
 ```powershell
 .\build\Create-LXC-template.ps1 -FQDNorIP $FQDNorIP -ConfigFile ansible-lxc-template
 ```
+
+https://pve.proxmox.com/pve-docs/api-viewer/#/nodes/{node}/qemu/{vmid}/clone
